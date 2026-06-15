@@ -130,6 +130,48 @@ def fetch_cbpf():
     return _tidy(frames)
 
 
+# Day-ahead-style forecasts used as LEAKAGE-FREE model features (Task 2).
+# We use forecast_type="current" = the archived pre-delivery forecast for each
+# timestamp (a forecast, NOT the actuals). NOTE: Energy-Charts does not provide a
+# keyless LOAD forecast, so we only fetch wind + solar here; load's predictable
+# shape is captured later via calendar features instead.
+FORECAST_SERIES = {
+    "wind_onshore_fcst_mw": "wind_onshore",
+    "wind_offshore_fcst_mw": "wind_offshore",
+    "solar_fcst_mw": "solar",
+}
+
+
+def fetch_forecasts():
+    """Pre-delivery forecasts for wind + solar (features for the price model).
+
+    These are forecasts known *before* delivery, so using them to predict the
+    day-ahead price does not leak future information.
+    """
+    frames = []
+    for start, end in _year_chunks(START_DATE, END_DATE):
+        # Pull each series for this year, then merge them on the timestamp.
+        chunk = None
+        for col, prod_type in FORECAST_SERIES.items():
+            print(f"  forecast {prod_type:14s} {start} -> {end}")
+            data = _get_json("public_power_forecast",
+                             {"country": MARKET_COUNTRY, "production_type": prod_type,
+                              "forecast_type": "current", "start": start, "end": end})
+            times = data["unix_seconds"]
+            values = data["forecast_values"]
+            # Be defensive: if the API returns no/short values, pad with NaN so
+            # the columns always line up with the timestamps.
+            if len(values) != len(times):
+                values = (values + [None] * len(times))[:len(times)]
+            part = pd.DataFrame({
+                "timestamp_utc": _unix_to_utc(times),
+                col: values,
+            })
+            chunk = part if chunk is None else chunk.merge(part, on="timestamp_utc", how="outer")
+        frames.append(chunk)
+    return _tidy(frames)
+
+
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
@@ -150,6 +192,7 @@ def main():
     _download("Day-ahead price", fetch_price, "price.parquet")
     _download("Public power (generation + load)", fetch_public_power, "public_power.parquet")
     _download("Cross-border flows", fetch_cbpf, "cbpf.parquet")
+    _download("Day-ahead forecasts (load, wind, solar)", fetch_forecasts, "forecast.parquet")
 
     print(f"\nDone. Raw Parquet files written to {RAW_DIR}")
 

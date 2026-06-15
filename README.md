@@ -1,11 +1,11 @@
-# European Power Fair Value — Task 1: Data Ingestion + Data Quality
+# European Power Fair Value (German DA Power)
 
-A reproducible pipeline that builds a clean, hourly dataset for the **German
-(DE-LU) power market** from **public, key-free** data, and runs data-quality
-checks on it.
+A reproducible pipeline for the **German (DE-LU) power market** using **public,
+key-free** data. It:
 
-This is the data foundation for a larger project: forecasting Day-Ahead prices
-from fundamentals and translating that view into prompt-curve positioning.
+1. **Task 1** — builds a clean hourly dataset + data-quality checks.
+2. **Task 2** — forecasts next-day hourly Day-Ahead prices (leakage-free) and
+   aggregates to next-week / next-month block fair values for the prompt curve.
 
 ---
 
@@ -61,6 +61,7 @@ pip install -r requirements.txt
 
 ```bash
 # 1. Download raw data from Energy-Charts  -> data/raw/*.parquet
+#    (prices, load/wind/solar actuals, flows, AND wind/solar day-ahead forecasts)
 .venv/bin/python -m src.ingest
 
 # 2. Clean, align to an hourly grid, merge  -> data/processed/dataset.parquet
@@ -68,9 +69,13 @@ pip install -r requirements.txt
 
 # 3. Run data-quality checks + figures      -> outputs/qa_report.md, outputs/figures/
 .venv/bin/python -m src.qa
+
+# 4. Forecast + validate + curve view       -> outputs/forecast_metrics.md, submission.csv
+.venv/bin/python -m src.forecast
 ```
 
-Or explore everything interactively in `notebooks/01_data_qa.ipynb`.
+Or explore interactively: `notebooks/01_data_qa.ipynb` (Task 1) and
+`notebooks/02_forecasting.ipynb` (Task 2).
 
 ---
 
@@ -80,17 +85,22 @@ Or explore everything interactively in `notebooks/01_data_qa.ipynb`.
 .
 ├── config.py             # market, dates, folders (edit here)
 ├── src/
-│   ├── ingest.py         # download raw series from Energy-Charts
+│   ├── ingest.py         # download raw series + forecasts from Energy-Charts
 │   ├── transform.py      # timezone/DST handling, hourly alignment, merge
-│   └── qa.py             # data-quality checks + figures
+│   ├── qa.py             # data-quality checks + figures
+│   ├── features.py       # leakage-free feature matrix for the price model
+│   └── forecast.py       # baselines + HGB, walk-forward CV, curve view, submission
 ├── notebooks/
-│   └── 01_data_qa.ipynb  # end-to-end walkthrough
+│   ├── 01_data_qa.ipynb      # Task 1 walkthrough
+│   └── 02_forecasting.ipynb  # Task 2 walkthrough
 ├── data/
 │   ├── raw/              # cached API pulls (Parquet)
 │   └── processed/        # final merged dataset (Parquet)
 ├── outputs/
-│   ├── qa_report.md      # data-quality summary
-│   └── figures/          # QA figures (PNG)
+│   ├── qa_report.md          # data-quality summary
+│   ├── forecast_metrics.md   # CV + test metrics + curve view
+│   └── figures/              # QA + forecast figures (PNG)
+├── submission.csv        # out-of-sample predictions (id, y_pred)
 └── reports/              # the written submission document
 ```
 
