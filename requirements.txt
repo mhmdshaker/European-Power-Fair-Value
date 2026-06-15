@@ -1,0 +1,9 @@
+# Python dependencies for the European Power Fair Value project.
+# Install with:  pip install -r requirements.txt
+
+requests>=2.31      # calling the Energy-Charts REST API
+pandas>=2.0         # data wrangling
+pyarrow>=14.0       # reading/writing Parquet files
+matplotlib>=3.7     # QA figures
+tabulate>=0.9       # rendering DataFrames as Markdown tables in the QA report
+jupyter>=1.0        # running the notebook

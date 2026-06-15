@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# Downloaded data (re-creatable by running the pipeline)
+data/raw/*.parquet
+data/processed/*.parquet
+
+# Keep the empty folders in git
+!data/raw/.gitkeep
+!data/processed/.gitkeep
