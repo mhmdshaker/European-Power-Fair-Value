@@ -8,6 +8,8 @@ key-free** data. It:
    aggregates to next-week / next-month block fair values for the prompt curve.
 3. **Task 3** — translates the forecast into a tradable prompt-curve view
    (fair value + bands → edge vs anchor → signal + invalidation rules).
+4. **Task 4** — a programmatic LLM writes the daily desk note from the computed
+   metrics, with a hallucination guard and full audit logging.
 
 ---
 
@@ -77,10 +79,15 @@ pip install -r requirements.txt
 
 # 5. Prompt-curve translation + signals      -> outputs/curve_view.md, figures/curve_view.png
 .venv/bin/python -m src.curve
+
+# 6. AI drivers commentary (optional key)     -> outputs/daily_commentary.md, ai_logs/
+export ANTHROPIC_API_KEY=...   # optional; without it, a logged fallback is used
+.venv/bin/python -m src.ai_commentary
 ```
 
 Or explore interactively: `notebooks/01_data_qa.ipynb` (Task 1),
-`notebooks/02_forecasting.ipynb` (Task 2), `notebooks/03_curve.ipynb` (Task 3).
+`notebooks/02_forecasting.ipynb` (Task 2), `notebooks/03_curve.ipynb` (Task 3),
+`notebooks/04_ai_commentary.ipynb` (Task 4).
 
 ---
 
@@ -95,11 +102,13 @@ Or explore interactively: `notebooks/01_data_qa.ipynb` (Task 1),
 │   ├── qa.py             # data-quality checks + figures
 │   ├── features.py       # leakage-free feature matrix for the price model
 │   ├── forecast.py       # baselines + HGB, walk-forward CV, curve view, submission
-│   └── curve.py          # prompt-curve translation: fair value -> signal + invalidation
+│   ├── curve.py          # prompt-curve translation: fair value -> signal + invalidation
+│   └── ai_commentary.py  # LLM drivers note from computed metrics + guard + logging
 ├── notebooks/
 │   ├── 01_data_qa.ipynb      # Task 1 walkthrough
 │   ├── 02_forecasting.ipynb  # Task 2 walkthrough
-│   └── 03_curve.ipynb        # Task 3 walkthrough
+│   ├── 03_curve.ipynb        # Task 3 walkthrough
+│   └── 04_ai_commentary.ipynb # Task 4 walkthrough
 ├── data/
 │   ├── raw/              # cached API pulls (Parquet)
 │   └── processed/        # final merged dataset (Parquet)
@@ -107,6 +116,8 @@ Or explore interactively: `notebooks/01_data_qa.ipynb` (Task 1),
 │   ├── qa_report.md          # data-quality summary
 │   ├── forecast_metrics.md   # CV + test metrics + curve view
 │   ├── curve_view.md         # tradable signal + invalidation rules
+│   ├── daily_commentary.md   # AI-generated desk note
+│   ├── ai_logs/              # LLM prompt/output/failure-mode logs (JSONL)
 │   └── figures/              # QA + forecast + curve figures (PNG)
 ├── submission.csv        # out-of-sample predictions (id, y_pred)
 └── reports/              # the written submission document

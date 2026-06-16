@@ -267,3 +267,52 @@ is doing real work, not decoration.
 python -m src.curve     # -> outputs/curve_view.md + figures/curve_view.png
 ```
 Or run `notebooks/03_curve.ipynb`.
+
+---
+
+# Task 4: AI-Accelerated Workflow (programmatic)
+
+## 1. The component
+
+`src/ai_commentary.py` generates the **daily desk "drivers" note** with an LLM,
+**programmatically** — replacing a manual writing task an analyst does each
+morning. It reads the exact, machine-computed metrics from `curve.compute_view()`
+(no re-typed numbers), prompts the model to use *only* those numbers, and writes
+`outputs/daily_commentary.md`.
+
+## 2. Why it is "AI as an engineering multiplier", not a chat tool
+
+- **Called from code:** Anthropic API via the `anthropic` SDK; the key comes from
+  the `ANTHROPIC_API_KEY` environment variable only (`.env` is git-ignored; a
+  `.env.example` documents it). No secret is ever committed or logged.
+- **Grounded by construction:** the LLM is fed a JSON of our computed metrics and
+  instructed to invent no numbers.
+- **Programmatic hallucination guard:** `verify_numbers()` extracts every number
+  from the model's output and checks each is grounded in the supplied metrics
+  (within tolerance, plus a small whitelist of structural constants like
+  percentiles/horizons). Demonstrated: a clean note flags nothing; an output with
+  invented `gas 42.0 / price 150.0` is caught and the output is rejected in favour
+  of a safe deterministic fallback.
+- **Everything logged:** prompt, raw output, verification result, and failure mode
+  go to `outputs/ai_logs/commentary_log.jsonl`.
+
+## 3. Failure modes handled (and logged)
+
+| Failure | Behaviour |
+|---|---|
+| `no_api_key` / SDK missing | Logged; deterministic template note used instead |
+| `api_error` (network etc.) | Logged with the exception; fallback used |
+| `hallucination_flagged` | Ungrounded numbers logged; LLM output rejected, fallback used |
+| `ok` | Output passed the guard; used as-is |
+
+This run logged `no_api_key` (no key in the environment) and produced a grounded
+fallback note, so the deliverable is reproducible without any credentials. With a
+key set, the same code path calls the live model and logs `ok`.
+
+## 4. Reproducibility (Task 4)
+
+```bash
+export ANTHROPIC_API_KEY=...   # optional; omit to exercise the fallback path
+python -m src.ai_commentary    # -> outputs/daily_commentary.md + ai_logs/*.jsonl
+```
+Or run `notebooks/04_ai_commentary.ipynb`.

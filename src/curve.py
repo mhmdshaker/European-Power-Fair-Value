@@ -203,13 +203,16 @@ def write_report(fv, level, shape, checks, fig_path):
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
-def main():
-    FIGURE_DIR.mkdir(parents=True, exist_ok=True)
+def compute_view():
+    """Run the model and return all curve metrics as a structured dict.
+
+    Shared by `main()` (writes the report) and the AI commentary component
+    (which must read EXACT machine-computed numbers, never re-typed ones).
+    """
     df = model_frame()
 
     # Reuse the Task-2 model: out-of-sample residuals + test-window forecast.
-    print("Fitting model (walk-forward) and forecasting the delivery period...")
-    _, oos = fc.cross_validate(df)
+    cv, oos = fc.cross_validate(df)
     test, preds_by_model, _ = fc.final_test(df)
     hgb = preds_by_model["hgb"]
     daily_resid = fc.daily_residuals(oos)
@@ -223,12 +226,25 @@ def main():
     base_anchor = market_anchor(prices, delivery_start)
     peak_anchor = market_anchor(prices[df["is_peak"] == 1], delivery_start)
 
-    level = level_signal(fv, base_anchor)
-    shape = shape_signal(fv, base_anchor, peak_anchor)
-    checks = invalidation_checks(test, fv)
+    cv_mae = cv.groupby("model")["MAE"].mean().round(2)
+    return {
+        "test": test, "fv": fv, "base_anchor": base_anchor,
+        "level": level_signal(fv, base_anchor),
+        "shape": shape_signal(fv, base_anchor, peak_anchor),
+        "checks": invalidation_checks(test, fv),
+        "delivery_start": str(delivery_start.date()),
+        "cv_mae": {m: float(cv_mae[m]) for m in cv_mae.index},
+    }
+
+
+def main():
+    FIGURE_DIR.mkdir(parents=True, exist_ok=True)
+    print("Fitting model (walk-forward) and forecasting the delivery period...")
+    view = compute_view()
+    fv, level, shape, checks = view["fv"], view["level"], view["shape"], view["checks"]
 
     fig_path = FIGURE_DIR / "curve_view.png"
-    figure_curve_view(fv, base_anchor, fig_path)
+    figure_curve_view(fv, view["base_anchor"], fig_path)
     report_path = write_report(fv, level, shape, checks, fig_path)
 
     print("\n=== Level signal (baseload) ===")

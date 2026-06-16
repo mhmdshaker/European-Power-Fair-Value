@@ -5,6 +5,9 @@ __pycache__/
 venv/
 .ipynb_checkpoints/
 
+# Secrets (API keys) — never commit
+.env
+
 # Downloaded data (re-creatable by running the pipeline)
 data/raw/*.parquet
 data/processed/*.parquet
