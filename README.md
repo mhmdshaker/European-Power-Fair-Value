@@ -6,6 +6,8 @@ key-free** data. It:
 1. **Task 1** — builds a clean hourly dataset + data-quality checks.
 2. **Task 2** — forecasts next-day hourly Day-Ahead prices (leakage-free) and
    aggregates to next-week / next-month block fair values for the prompt curve.
+3. **Task 3** — translates the forecast into a tradable prompt-curve view
+   (fair value + bands → edge vs anchor → signal + invalidation rules).
 
 ---
 
@@ -72,10 +74,13 @@ pip install -r requirements.txt
 
 # 4. Forecast + validate + curve view       -> outputs/forecast_metrics.md, submission.csv
 .venv/bin/python -m src.forecast
+
+# 5. Prompt-curve translation + signals      -> outputs/curve_view.md, figures/curve_view.png
+.venv/bin/python -m src.curve
 ```
 
-Or explore interactively: `notebooks/01_data_qa.ipynb` (Task 1) and
-`notebooks/02_forecasting.ipynb` (Task 2).
+Or explore interactively: `notebooks/01_data_qa.ipynb` (Task 1),
+`notebooks/02_forecasting.ipynb` (Task 2), `notebooks/03_curve.ipynb` (Task 3).
 
 ---
 
@@ -89,17 +94,20 @@ Or explore interactively: `notebooks/01_data_qa.ipynb` (Task 1) and
 │   ├── transform.py      # timezone/DST handling, hourly alignment, merge
 │   ├── qa.py             # data-quality checks + figures
 │   ├── features.py       # leakage-free feature matrix for the price model
-│   └── forecast.py       # baselines + HGB, walk-forward CV, curve view, submission
+│   ├── forecast.py       # baselines + HGB, walk-forward CV, curve view, submission
+│   └── curve.py          # prompt-curve translation: fair value -> signal + invalidation
 ├── notebooks/
 │   ├── 01_data_qa.ipynb      # Task 1 walkthrough
-│   └── 02_forecasting.ipynb  # Task 2 walkthrough
+│   ├── 02_forecasting.ipynb  # Task 2 walkthrough
+│   └── 03_curve.ipynb        # Task 3 walkthrough
 ├── data/
 │   ├── raw/              # cached API pulls (Parquet)
 │   └── processed/        # final merged dataset (Parquet)
 ├── outputs/
 │   ├── qa_report.md          # data-quality summary
 │   ├── forecast_metrics.md   # CV + test metrics + curve view
-│   └── figures/              # QA + forecast figures (PNG)
+│   ├── curve_view.md         # tradable signal + invalidation rules
+│   └── figures/              # QA + forecast + curve figures (PNG)
 ├── submission.csv        # out-of-sample predictions (id, y_pred)
 └── reports/              # the written submission document
 ```

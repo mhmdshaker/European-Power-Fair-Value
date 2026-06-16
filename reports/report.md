@@ -202,7 +202,68 @@ python -m src.forecast      # CV + test + figures + submission.csv
 Or run `notebooks/02_forecasting.ipynb`. Out-of-sample predictions are in
 `submission.csv` (id = UTC timestamp, y_pred = forecast EUR/MWh).
 
-## 8. Next steps
+---
 
-- **Task 3 — DA → curve translation:** map the fair-value view onto prompt-curve
-  positioning with explicit invalidation logic.
+# Task 3: Prompt-Curve Translation
+
+## 1. Method — from forecast to a tradable view
+
+The chain is: **hourly DA forecast → delivery-period fair value (with bands) →
+edge vs a market anchor → confidence-weighted signal → desk action + invalidation.**
+
+- **Expected delivery-period mean (fair value):** the HGB hourly forecast is
+  aggregated to the prompt-month **baseload** and **peak** averages.
+- **Distribution bands:** P10/P50/P90 from a block bootstrap of out-of-sample
+  daily errors (Task 2). The band *is* the risk view, not an afterthought.
+- **Market anchor (no paid data):** trailing 30-day realised average — a
+  transparent proxy for where a persistence-minded market marks the prompt. In
+  production a live forward quote drops straight in; the maths is unchanged.
+- **Confidence-weighted signal:** edge = P50 − anchor, standardised by the
+  forecast band (`z = edge / band`). Position scales with `z`, capped at the desk
+  clip; **edges inside the band are not traded.**
+
+## 2. Worked example (prompt month = held-out test window)
+
+| Quantity | Value (EUR/MWh) |
+|---|---|
+| Market anchor (trailing 30d) | 84.44 |
+| Fair value P50 | 86.47 |
+| Fair value band (P10–P90) | 83.38 – 89.69 |
+| Edge | +2.03 |
+| Band half-width | 3.16 |
+
+- **Level signal: FLAT.** The +2.03 edge is *inside* the forecast band, so there
+  is no tradable conviction — the desk stands aside. (Disciplined, not forced.)
+- **Shape signal: SHORT peak/base spread** (edge −2.07). Our forecast peak sits
+  ~22 EUR below base (the summer "solar belly"), slightly weaker than the anchor's
+  recent shape — a spread view separable from the level.
+
+## 3. What the desk would do
+
+- **Level:** LONG = buy prompt-month **baseload** (size = confidence-weighted MW);
+  SHORT = sell it.
+- **Shape:** trade the **peak vs off-peak spread** when forecast shape ≠ anchor.
+- **Up the curve:** aggregate the same hourly model over a quarter for a
+  **prompt-quarter** view; month-to-month differences drive **calendar spreads**.
+
+## 4. What invalidates the signal (computed, not just asserted)
+
+1. **Band breach** — realised average leaves P10–P90 → model mis-calibrated for the
+   regime. *In the example this FAILED* (actual 94.47 > P90 89.69): the model
+   under-priced, so any level trade should have been flagged/cut.
+2. **Fundamentals drift** — realised wind/solar diverge > 15% from the forecast the
+   FV was built on. *In the example this PASSED* (drift +0.7%).
+3. **Edge within noise** — `|edge| < band half-width` → no trade (this fired here).
+4. **Regime shocks (manual gate)** — large gas/carbon moves, not yet modelled.
+
+**Diagnostic payoff:** checks (1) and (2) together *explain* the miss — renewables
+were forecast almost perfectly (+0.7%), so the level error came from an omitted
+driver (fuel/carbon), consistent with the Task 2 bias note. The invalidation layer
+is doing real work, not decoration.
+
+## 5. Reproducibility (Task 3)
+
+```bash
+python -m src.curve     # -> outputs/curve_view.md + figures/curve_view.png
+```
+Or run `notebooks/03_curve.ipynb`.
